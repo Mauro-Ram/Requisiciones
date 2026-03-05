@@ -1,39 +1,36 @@
 <?php
-include_once 'validarSesion.php';
-// NOTA PARA EL USUARIO: Se asume que {{NameUser}} y las directivas de Vue (v-if, v-for)
-// funcionan correctamente cuando Vue se inicializa en tu archivo index.js.
+include_once __DIR__ . '/validarSesion.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">
 
 <head>
-    <meta charset="utf8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <link rel="icon" type="image/jpg" href="./images/TheFuenteIcon.png" />
     <title>Inicio :: The Fuentes Corporation</title>
 
     <link rel="stylesheet" href="plugins/sweetalert/sweetalert2.min.css">
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" />
-    
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap5.css">
-    
+
     <link rel="stylesheet" href="main.css">
-    
+
     <style>
         :root {
-            /* Definición de paleta de colores consistente */
             --primary-color: #4468C1;
             --primary-dark: #324d91;
-            --bg-body: #f8faff; /* Fondo general más luminoso */
+            --bg-body: #f8faff;
             --text-dark: #2c3e50;
             --text-muted: #7f8c8d;
-            --sidebar-width: 280px; /* Un poco más ancho para mejor lectura */
-            --card-shadow: 0 10px 30px -5px rgba(68, 104, 193, 0.1); /* Sombra suave y moderna */
+            --sidebar-width: 280px;
+            --card-shadow: 0 10px 30px -5px rgba(68, 104, 193, 0.1);
         }
 
         body {
@@ -43,7 +40,6 @@ include_once 'validarSesion.php';
             overflow: hidden;
         }
 
-        /* --- MEJORAS DEL SIDEBAR --- */
         #sidebar {
             width: var(--sidebar-width);
             background: linear-gradient(160deg, var(--primary-color) 0%, var(--primary-dark) 100%);
@@ -61,17 +57,16 @@ include_once 'validarSesion.php';
             font-weight: 500;
             padding: 14px 20px;
             margin: 4px 12px;
-            border-radius: 12px; /* Bordes más redondeados */
+            border-radius: 12px;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
         }
 
-        /* Efecto Hover y Active más sofisticado */
         .nav-link:hover, .nav-link.active, .nav-link[aria-expanded="true"] {
             background-color: rgba(255,255,255,0.15);
             color: white;
-            transform: translateX(5px); /* Pequeño movimiento al interactuar */
+            transform: translateX(5px);
         }
 
         .nav-link .material-symbols-rounded {
@@ -79,19 +74,17 @@ include_once 'validarSesion.php';
             font-size: 24px;
         }
 
-        /* Submenú */
         #submenuObras .nav-link {
             padding-left: 50px;
-            background: transparent !important; /* El submenú no debe tener fondo active */
+            background: transparent !important;
             transform: none !important;
             font-size: 0.95rem;
         }
         #submenuObras .nav-link:hover {
              color: white;
-             padding-left: 55px; /* Desplazamiento solo en el texto */
+             padding-left: 55px;
         }
-        
-        /* --- MEJORAS DEL ÁREA PRINCIPAL --- */
+
         #main-content {
             flex-grow: 1;
             height: 100vh;
@@ -100,27 +93,21 @@ include_once 'validarSesion.php';
             flex-direction: column;
         }
 
-        /* Navbar Superior Limpia */
         .navbar-custom {
             background: white;
             padding: 1rem 2rem;
             border-bottom: 1px solid #eef2f7;
         }
 
-        /* --- NUEVO DISEÑO DEL HERO DE BIENVENIDA --- */
-        /* Reemplaza a la tarjeta simple anterior */
         .welcome-hero {
-            background: white;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
             border-radius: 24px;
             padding: 3rem;
-            /* Degradado sutil de fondo */
-            background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
             box-shadow: var(--card-shadow);
             position: relative;
             overflow: hidden;
         }
 
-        /* Decoración de fondo */
         .welcome-hero::after {
             content: 'dashboard';
             font-family: 'Material Symbols Rounded';
@@ -133,7 +120,7 @@ include_once 'validarSesion.php';
             pointer-events: none;
             transform: rotate(-10deg);
         }
-        
+
         .hero-title {
             color: var(--text-dark);
             font-weight: 700;
@@ -146,7 +133,6 @@ include_once 'validarSesion.php';
             max-width: 600px;
         }
 
-        /* Botones de acción rápida en el hero */
         .quick-action-btn {
             background: white;
             border: 1px solid #eef2f7;
@@ -169,13 +155,15 @@ include_once 'validarSesion.php';
             font-size: 20px;
             margin-right: 8px;
         }
-
     </style>
 </head>
 
 <body>
     <div id="AppIndex" class="d-flex w-100">
-        
+
+        <!-- ════════════════════════════════════════ -->
+        <!-- SIDEBAR -->
+        <!-- ════════════════════════════════════════ -->
         <div class="d-flex flex-column flex-shrink-0" id="sidebar">
             <div class="sidebar-header d-flex align-items-center">
                 <div class="bg-white bg-opacity-25 rounded-circle p-2 d-flex justify-content-center align-items-center me-3">
@@ -186,14 +174,14 @@ include_once 'validarSesion.php';
                     <span class="fs-5 fw-bold text-white text-truncate" title="{{NameUser}}">{{NameUser}}</span>
                 </div>
             </div>
-            
+
             <div class="flex-grow-1 overflow-auto py-4">
                 <ul class="nav flex-column list-unstyled" id="v-pills-tab" role="tablist">
-                    
-                    <li v-if="this.users[0].user_directionAcess == 1">
+
+                    <li v-if="users.length && users[0].user_directionAcess == 1">
                         <a href="#" class="nav-link text-decoration-none" @click="irDireecion">
                             <span class="material-symbols-rounded">corporate_fare</span>
-                            <span>DIRECCIÓN</span>
+                            <span>DIRECCI��N</span>
                         </a>
                     </li>
 
@@ -232,8 +220,12 @@ include_once 'validarSesion.php';
                 </a>
             </div>
         </div>
+
+        <!-- ════════════════════════════════════════ -->
+        <!-- CONTENIDO PRINCIPAL -->
+        <!-- ════════════════════════════════════════ -->
         <div id="main-content">
-            
+
             <nav class="navbar-custom d-flex justify-content-between align-items-center sticky-top">
                 <div>
                     <h5 class="mb-1 fw-bold" style="color: var(--primary-dark);">The Fuentes Corporation Workspace</h5>
@@ -248,12 +240,19 @@ include_once 'validarSesion.php';
                 </div>
                 <div class="d-flex align-items-center text-muted fw-medium bg-light px-3 py-2 rounded-pill">
                     <span class="material-symbols-rounded me-2 fs-5">calendar_today</span>
-                    <?php setlocale(LC_TIME, 'es_ES', 'esp'); echo strftime("%d de %B, %Y"); ?>
+                    <?php
+                        $meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+                        $dia = date('d');
+                        $mes = $meses[intval(date('m')) - 1];
+                        $anio = date('Y');
+                        echo "{$dia} de {$mes}, {$anio}";
+                    ?>
                 </div>
             </nav>
 
             <div class="container-fluid p-4 p-md-5">
-                
+
                 <div class="row mb-5">
                     <div class="col-12">
                         <div class="welcome-hero">
@@ -263,7 +262,7 @@ include_once 'validarSesion.php';
                                     <p class="hero-subtitle mb-4 pe-lg-5 lead">
                                         Bienvenido a tu panel de control. Hemos preparado todo para que gestiones tus proyectos de forma eficiente hoy.
                                     </p>
-                                    
+
                                     <div class="d-flex flex-wrap gap-3 mt-4">
                                         <button class="btn quick-action-btn text-decoration-none">
                                             <span class="material-symbols-rounded">add_circle</span>
@@ -292,7 +291,14 @@ include_once 'validarSesion.php';
                     </div>
                 </div>
 
-            </div> </div> </div> <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════ -->
+    <!-- SCRIPTS -->
+    <!-- ════════════════════════════════════════ -->
+    <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.js"></script>
     <script src="./bootstrap/js/bootstrap.min.js"></script>
 

@@ -11,71 +11,31 @@ const appLogin = new Vue({
     methods: {
         EntarLogin: async function (User, Password) {
             if (User == "" || Password == "") {
-                const Toast = Swal.mixin({
-                    toast: true,
-                    position: "top-end",
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true,
-                    didOpen: (toast) => {
-                        toast.onmouseenter = Swal.stopTimer;
-                        toast.onmouseleave = Swal.resumeTimer;
-                    }
-                });
-                Toast.fire({
-                    icon: "warning",
-                    title: "Datos incompletos"
-                });
-            }
-            else {
+                Swal.fire({ toast: true, position: "top-end", icon: "warning", title: "Datos incompletos", showConfirmButton: false, timer: 3000, timerProgressBar: true });
+            } else {
                 this.login();
             }
         },
         login: function () {
             axios.post(url, { user: this.User, password: this.Password }).then(response => {
-                console.log("La respuesta es: "+response.data);
                 this.Credenciales = response.data;
                 if (this.Credenciales.bandera == "true") {
-                    localStorage.setItem("NameUser",this.Credenciales.user_id);
-                    const Toast = Swal.mixin({
-                        toast: true,
-                        position: "top-end",
-                        showConfirmButton: false,
-                        timer: 1000,
-                        timerProgressBar: true,
-                        didOpen: (toast) => {
-                            toast.onmouseenter = Swal.stopTimer;
-                            toast.onmouseleave = Swal.resumeTimer;
-                        }
-                    });
-                    Toast.fire({
-                        icon: "success",
-                        title: "Autenticacion Correcta"
-                    }).then(()=>{
-                        window.location.href = url2+"/index.php";
-                    });
-                }
-                else {
-                    const Toast = Swal.mixin({
-                        toast: true,
-                        position: "top-end",
-                        showConfirmButton: false,
-                        timer: 1000,
-                        timerProgressBar: true,
-                        didOpen: (toast) => {
-                            toast.onmouseenter = Swal.stopTimer;
-                            toast.onmouseleave = Swal.resumeTimer;
-                        }
-                    });
-                    Toast.fire({
-                        icon: "error",
-                        title: "Verifica la informacion"
-                    });
+                    // Guardar datos de sesión en localStorage
+                    localStorage.setItem("NameUser", this.Credenciales.user_id);
+                    localStorage.setItem("UserName", this.Credenciales.user_name);
+                    localStorage.setItem("UserRol", this.Credenciales.user_rol);
+                    localStorage.setItem("UserPermisos", JSON.stringify(this.Credenciales.permisos));
 
+                    Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Autenticación Correcta", showConfirmButton: false, timer: 1000, timerProgressBar: true }).then(() => {
+                        window.location.href = url2 + "/index.php";
+                    });
+                } else {
+                    const mensaje = this.Credenciales.mensaje || "Verifica la información";
+                    Swal.fire({ toast: true, position: "top-end", icon: "error", title: mensaje, showConfirmButton: false, timer: 2000, timerProgressBar: true });
                 }
             });
         }
     },
-    created: function () { },
+    created: function () {},
     computed: {}
 });

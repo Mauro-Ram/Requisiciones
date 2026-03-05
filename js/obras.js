@@ -1,59 +1,26 @@
 var url = "bd/crud_obras.php";
-var url2 = ".";
 
-const appRequesition = new Vue({
-    el: "#AppObras",
+const appMain = new Vue({
+    el: "#AppMain",                    // ← Siempre #AppMain
+    mixins: [PermisosMixin],           // ← Siempre el mixin
     data: {
-        users: [],
-        obras: [],
-        obrasLista: [],
-        NameUser: ""
+        obraActiva: [],
+        // ... datos específicos de obras
     },
     methods: {
-        consultarUsuario: function (user_id) {
-            axios.post(url, { accion: 1, id_user: user_id }).then(response => {
-                this.users = response.data;
-                this.NameUser = this.users[0].user_name;
-                console.log(this.users);
-            });
-        },
         infoObraActiva: function (obrasId) {
-            axios.post(url, { accion: 3, obra: obrasId }).then(response => {
-                this.obras = response.data;
-                console.log(this.obras);
+            var self = this;
+            axios.post(url, { accion: 1, obra: obrasId }).then(function (response) {
+                self.obraActiva = response.data;
             });
         },
-        listarObras: function () {
-            axios.post(url, { accion: 2 }).then(response => {
-                this.obrasLista = response.data;
-                console.log(this.obrasLista);
-            });
-        },
-        irObra(idObra) {
-            localStorage.setItem("obraActiva", idObra);
-            window.location.href = url2 + "/obras.php";
-        },
-        enterRequisiciones: function()
-        {
-            window.location.href = url2 + "/requisiciones.php";
-        },
-        enterPresiones: function()
-        {
-            window.location.href = url2 + "/presiones.php";
-        },
-        irDireecion: function(){
-            window.location.href = url2 + "/direccion.php";
-        },
-        irMenuCatalago: function(){
-            window.location.href = url2 + "/menu_catalago.php";
-        }
+        enterPresiones: function () { this.irVista('presiones'); },
+        enterRequisiciones: function () { this.irVista('requisiciones'); },
+        // ... demás métodos de obras
     },
     created: function () {
-        this.listarObras();
+        this.inicializarPermisos();     // ← Siempre primero
+        this.cargarDatosSidebar();      // ← Carga sidebar
         this.infoObraActiva(localStorage.getItem("obraActiva"));
-        this.consultarUsuario(localStorage.getItem("NameUser"));
-    },
-    computed: {
-
     }
 });

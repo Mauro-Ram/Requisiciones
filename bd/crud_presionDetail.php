@@ -5,66 +5,67 @@ header("Content-Disposition: attachment; filename=Presion_de Gastos_" . date('Y:
 header("Pragma: no-cache");
 header("Expires: 0");
 include_once 'conexion.php';
-$objeto = new Conexion();
-$conexion = $objeto->Conectar();
+include_once 'auth.php';
+$conexion = Conexion::Conectar();
 
+$auth = new Auth($conexion);
+$usuario = $auth->verificarSesion();
 
-//Conexion con axios, por parametro POST
 $_POST = json_decode(file_get_contents("php://input"), true);
+if (!is_array($_POST)) $_POST = [];
 
-$accion = (isset($_POST['accion'])) ? $_POST['accion'] : '';
-$id_user = (isset($_POST['id_user'])) ? $_POST['id_user'] : '';
-$obra = (isset($_POST['obra'])) ? $_POST['obra'] : '';
-$dia = (isset($_POST['dia'])) ? $_POST['dia'] : '';
-$semana = (isset($_POST['semana'])) ? $_POST['semana'] : '';
-$idHoja = (isset($_POST['idHoja'])) ? $_POST['idHoja'] : '';
-$idPresion = (isset($_POST['idPresion'])) ? $_POST['idPresion'] : '';
-$fechaPago = (isset($_POST['fechaPago'])) ? $_POST['fechaPago'] : '';
-$bancoPago = (isset($_POST['bancoPago'])) ? $_POST['bancoPago'] : '';
-$estatus = (isset($_POST['status'])) ? $_POST['status'] : '';
-$time = (isset($_POST['time'])) ? $_POST['time'] : '';
-$autorizado = (isset($_POST['autorizado'])) ? $_POST['autorizado'] : '';
+$accion      = isset($_POST['accion'])     ? $_POST['accion']     : '';
+$obra        = isset($_POST['obra'])       ? $_POST['obra']       : '';
+$dia         = isset($_POST['dia'])        ? $_POST['dia']        : '';
+$semana      = isset($_POST['semana'])     ? $_POST['semana']     : '';
+$idHoja      = isset($_POST['idHoja'])     ? $_POST['idHoja']     : '';
+$idPresion   = isset($_POST['idPresion'])  ? $_POST['idPresion']  : '';
+$fechaPago   = isset($_POST['fechaPago'])  ? $_POST['fechaPago']  : '';
+$bancoPago   = isset($_POST['bancoPago'])  ? $_POST['bancoPago']  : '';
+$estatus     = isset($_POST['status'])     ? $_POST['status']     : '';
 $DatosExport = json_decode((isset($_POST['datos'])) ? $_POST['datos'] : '', true);
-$NombrePress = (isset($_POST['namePres'])) ? $_POST['namePres'] : '';
-$total = (isset($_POST['total'])) ? $_POST['total'] : '';
-$adeudo = (isset($_POST['adeudo'])) ? $_POST['adeudo'] : '';
-$Presiones = json_decode((isset($_POST['Presiones'])) ? $_POST['Presiones'] : '', true);
+$NombrePress = isset($_POST['namePres'])   ? $_POST['namePres']   : '';
+$total       = isset($_POST['total'])      ? $_POST['total']      : '';
+$adeudo      = isset($_POST['adeudo'])     ? $_POST['adeudo']     : '';
+$Presiones   = json_decode((isset($_POST['Presiones'])) ? $_POST['Presiones'] : '', true);
 $output = "";
 $textExpecial = "";
+$data = [];
 
 switch ($accion) {
     case 1:
-        $consulta = "SELECT * FROM `users` WHERE `user_id` = '$id_user';";
-        $resultado = $conexion->prepare($consulta);
-        $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = [$auth->getDatosParaFrontend()];
         break;
+
     case 2:
-        $consulta = "SELECT * FROM `obras` WHERE `obras_estatus` = 'ACTIVO' ORDER BY `obras_nombre`";
-        $resultado = $conexion->prepare($consulta);
-        $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $auth->obtenerObrasPermitidas();
         break;
+
     case 3:
-        $consulta = "SELECT `hojaRequisicion_id`, `requisicion_Clave`, `requisicion_Numero`, `hojaRequisicion_observaciones`, `hojaRequisicion_numero`, `requisicion_Nombre`, `proveedor_nombre`, `hojaRequisicion_total`, `hojaRequisicion_formaPago`, `hojaRequisicion_estatus`, `presiones_estatus`, `hojaRequisicion_fechaPago`, `hojasRequisicion_bancoPago` , `hojarequisicion_adeudo`,  `hojarequisicion_conceptoUnico`\n"
-            . "FROM `requisicionesligadas`\n"
-            . "JOIN presiones ON presiones.presiones_id = requisicionesLigada_presionID\n"
-            . "JOIN requisiciones ON requisiciones.requisicion_id = requisicionesLigadas_requisicionID\n"
-            . "JOIN hojasrequisicion ON hojasrequisicion.hojaRequisicion_id = requisicionesLigadas_hojaID\n"
-            . "JOIN provedores ON hojasrequisicion.hojaRequisicion_proveedor = provedores.proveedor_id\n"
-            . "WHERE requisicionesLigada_presionID = '$idPresion'\n"
-            . "ORDER BY `requisicion_Clave` DESC";
-
+        // Cargar datos de presión
+        $consulta = "SELECT `hojaRequisicion_id`, `requisicion_Clave`, `requisicion_Numero`, 
+                     `hojaRequisicion_observaciones`, `hojaRequisicion_numero`, `requisicion_Nombre`, 
+                     `proveedor_nombre`, `hojaRequisicion_total`, `hojaRequisicion_formaPago`, 
+                     `hojaRequisicion_estatus`, `presiones_estatus`, `hojaRequisicion_fechaPago`, 
+                     `hojasRequisicion_bancoPago`, `hojarequisicion_adeudo`, `hojarequisicion_conceptoUnico`
+                     FROM `requisicionesligadas`
+                     JOIN presiones ON presiones.presiones_id = requisicionesLigada_presionID
+                     JOIN requisiciones ON requisiciones.requisicion_id = requisicionesLigadas_requisicionID
+                     JOIN hojasrequisicion ON hojasrequisicion.hojaRequisicion_id = requisicionesLigadas_hojaID
+                     JOIN provedores ON hojasrequisicion.hojaRequisicion_proveedor = provedores.proveedor_id
+                     WHERE requisicionesLigada_presionID = :idPresion
+                     ORDER BY `requisicion_Clave` DESC";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':idPresion', $idPresion, PDO::PARAM_INT);
         $resultado->execute();
-        $dataBD = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $dataBD = $resultado->fetchAll();
         $data = array();
-
         foreach ($dataBD as $hoja) {
-            $consulta = "SELECT `itemRequisicion_producto` FROM `itemrequisicion` WHERE itemRequisicion_idHoja =" . $hoja["hojaRequisicion_id"];
+            $consulta = "SELECT `itemRequisicion_producto` FROM `itemrequisicion` WHERE itemRequisicion_idHoja = :idHoja";
             $resultado = $conexion->prepare($consulta);
+            $resultado->bindParam(':idHoja', $hoja["hojaRequisicion_id"], PDO::PARAM_INT);
             $resultado->execute();
-            $dataitms = $resultado->fetchAll(PDO::FETCH_ASSOC);
+            $dataitms = $resultado->fetchAll();
             array_push($data, array(
                 'id_hoja' => $hoja['hojaRequisicion_id'],
                 'formaPago' => obtenerAbreviatura($hoja['hojaRequisicion_formaPago']),
@@ -75,9 +76,7 @@ switch ($accion) {
                 'total' => $hoja['hojaRequisicion_total'],
                 'Observaciones' => $hoja['hojaRequisicion_observaciones'],
                 "Banco" => $hoja['hojasRequisicion_bancoPago'],
-                "Fecha" => empty($hoja['hojaRequisicion_fechaPago'])
-                    ? date('Y-m-d')
-                    : $hoja['hojaRequisicion_fechaPago'],
+                "Fecha" => empty($hoja['hojaRequisicion_fechaPago']) ? date('Y-m-d') : $hoja['hojaRequisicion_fechaPago'],
                 "HojaEstatus" => $hoja['hojaRequisicion_estatus'],
                 "PresionEstatus" => $hoja['presiones_estatus'],
                 "adeudo" => $hoja['hojarequisicion_adeudo'],
@@ -87,46 +86,39 @@ switch ($accion) {
                 "strStyle" => "max-width: 100px;"
             ));
         }
-        ;
         break;
+
     case 4:
-        $consulta = "SELECT `obras_nombre`,`ciudadesObras_nombre` FROM `obras` JOIN estadosobra ON estadosobra.ciudadesObras_id = obras.obras_cuidad WHERE `obras_id` = '$obra'";
+        $consulta = "SELECT `obras_nombre`,`ciudadesObras_nombre` FROM `obras` 
+                     JOIN estadosobra ON estadosobra.ciudadesObras_id = obras.obras_cuidad 
+                     WHERE `obras_id` = :obra";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
         $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $resultado->fetchAll();
         break;
+
     case 5:
-        /*  $consulta = "INSERT INTO `logs` (`log_id`, `log_accion`, `log_fechaAccion`, `log_usuario`, `log_horaAccion`, `log_moduloAccion`) VALUES (NULL, 'Agregar', '$fechaPago', '$id_user', '$time', 'Presion Detalle')";
+        // Pagar hoja — SOLO Validador, CEO, Developer
+        $auth->requierePermiso('pagos', 'autorizar');
+        $consulta = "UPDATE `hojasrequisicion` SET `hojaRequisicion_estatus` = 'PAGADA', 
+                     `hojaRequisicion_fechaPago` = :fechaPago, `hojasRequisicion_bancoPago` = :bancoPago 
+                     WHERE `hojaRequisicion_id` = :idHoja";
         $resultado = $conexion->prepare($consulta);
-        $resultado->execute(); */
-        $consulta = "UPDATE `hojasrequisicion` SET `hojaRequisicion_estatus` = 'PAGADA', `hojaRequisicion_fechaPago` = '$fechaPago', `hojasRequisicion_bancoPago` = '$bancoPago' WHERE `hojasrequisicion`.`hojaRequisicion_id` = '$idHoja'";
-        $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':fechaPago', $fechaPago, PDO::PARAM_STR);
+        $resultado->bindParam(':bancoPago', $bancoPago, PDO::PARAM_STR);
+        $resultado->bindParam(':idHoja', $idHoja, PDO::PARAM_INT);
         $resultado->execute();
+        $auth->registrarBitacora('PAGAR', 'Hojas', $idHoja, [
+            'fecha' => $fechaPago, 'banco' => $bancoPago
+        ]);
         break;
+
     case 6:
+        // Exportar Excel — sin cambios de lógica, solo auth
         if (isset($_POST["export"])) {
-            $textExpecial .= '
-                <table border="1">
-                    <thead>
-                        <tr bgcolor="orange">
-                            <th colspan="11">PRESION OBRA: ' . $NombrePress . ' (' . date('d/m/Y') . ')</th>
-                        </tr>
-                    </thead>
-                    <thead>
-                        <tr bgcolor="yellow">
-                            <th>CLAVE</th>
-                            <th>NUMERO DE REQUISICION</th>
-                            <th>PROVEEDOR</th>
-                            <th>CONCEPTO</th>
-                            <th>ADEUDO</th>
-                            <th>PAGO PROGRAMADO</th>
-                            <th>NETO</th>
-                            <th>OBSERVACIONES</th>
-                            <th>FORMA DE PAGO</th>
-                            <th>FECHA DE PAGO</th>
-                            <th>BANCO DE PAGO</th>
-                        </tr>
-                    </thead>';
+            $textExpecial .= '<table border="1"><thead><tr bgcolor="orange"><th colspan="11">PRESION OBRA: ' . htmlspecialchars($NombrePress) . ' (' . date('d/m/Y') . ')</th></tr></thead>
+                <thead><tr bgcolor="yellow"><th>CLAVE</th><th>NUMERO DE REQUISICION</th><th>PROVEEDOR</th><th>CONCEPTO</th><th>ADEUDO</th><th>PAGO PROGRAMADO</th><th>NETO</th><th>OBSERVACIONES</th><th>FORMA DE PAGO</th><th>FECHA DE PAGO</th><th>BANCO DE PAGO</th></tr></thead>';
             $textExpecial .= "<tbody>";
             $indexAct = 0;
             $indexNext = 1;
@@ -134,252 +126,93 @@ switch ($accion) {
                 if ($indexAct == 0) {
                     $textExpecial .= '<tr bgcolor="Silver"><th colspan="11">' . putNameSection($datosExcel['clave']) . "</th></tr>";
                 }
-                ;
-                if ($datosExcel['formaPago'] == 'Efec') {
-                    $textExpecial .= '
-                         <tr style="color: red;">
-                           <th>' . $datosExcel['clave'] . '</th>
-                            <th>' . $datosExcel['NumReq'] . '</th>
-                            <th>' . $datosExcel['proveedor'] . '</th>
-                            <th>' . $datosExcel['concepto'] . '</th>
-                            <th>' . formatearMoneda($datosExcel['total']) . '</th>
-                            <th>  </th>
-                            <th>' . formatearMoneda($datosExcel['adeudo']) . '</th>
-                            <th>' . $datosExcel['Observaciones'] . '</th>
-                            <th>' . $datosExcel['formaPago'] . '</th>
-                            <th> </th>
-                            <th>' . $datosExcel['Banco'] . '</th>
-                        </tr>
-                ';
-                } else {
-                    $textExpecial .= "
-                         <tr>
-                           <th>" . $datosExcel['clave'] . "</th>
-                            <th>" . $datosExcel['NumReq'] . "</th>
-                            <th>" . $datosExcel['proveedor'] . "</th>
-                            <th>" . $datosExcel['concepto'] . "</th>
-                            <th>" . formatearMoneda($datosExcel['total']) . "</th>
-                            <th>  </th>
-                            <th>" . formatearMoneda($datosExcel['adeudo']) . "</th>
-                            <th>" . $datosExcel['Observaciones'] . "</th>
-                            <th>" . $datosExcel['formaPago'] . "</th>
-                            <th> </th>
-                            <th>" . $datosExcel['Banco'] . "</th>
-                        </tr>
-                ";
-                }
+                $color = ($datosExcel['formaPago'] == 'Efec') ? ' style="color: red;"' : '';
+                $textExpecial .= '<tr' . $color . '><th>' . htmlspecialchars($datosExcel['clave']) . '</th><th>' . htmlspecialchars($datosExcel['NumReq']) . '</th><th>' . htmlspecialchars($datosExcel['proveedor']) . '</th><th>' . htmlspecialchars($datosExcel['concepto']) . '</th><th>' . formatearMoneda($datosExcel['total']) . '</th><th></th><th>' . formatearMoneda($datosExcel['adeudo']) . '</th><th>' . htmlspecialchars($datosExcel['Observaciones']) . '</th><th>' . htmlspecialchars($datosExcel['formaPago']) . '</th><th></th><th>' . htmlspecialchars($datosExcel['Banco']) . '</th></tr>';
                 if ($indexNext < count($DatosExport)) {
                     if ($DatosExport[$indexAct]['clave'] != $DatosExport[$indexNext]['clave']) {
                         $textExpecial .= '<tr bgcolor="Silver"><th colspan="11">' . putNameSection($DatosExport[$indexNext]['clave']) . "</th></tr>";
                     }
-                    ;
                 }
                 $indexAct++;
                 $indexNext++;
             }
-            $textExpecial .= '<tr bgcolor="yellow">
-                            <th colspan="4" style="text-align: right;">GRAN TOTAL ' . $NombrePress . "</th>
-                            <th> " . formatearMoneda($total) . " </th>
-                            <th>  </th>
-                            <th> " . formatearMoneda($adeudo) . " </th>
-                            <th>  </th>
-                            <th>  </th>
-                            <th>  </th>
-                            <th>  </th>
-                        </tr>";
+            $textExpecial .= '<tr bgcolor="yellow"><th colspan="4" style="text-align: right;">GRAN TOTAL ' . htmlspecialchars($NombrePress) . '</th><th>' . formatearMoneda($total) . '</th><th></th><th>' . formatearMoneda($adeudo) . '</th><th></th><th></th><th></th><th></th></tr>';
             $textExpecial .= "</tbody></table>";
             $output = mb_convert_encoding($textExpecial, 'UTF-8', 'auto');
             echo $output;
             $data = "PRESION GENERADA DESDE EL SISTEMA THE FUENTES WS";
         }
         break;
+
     case 7:
+        // Cerrar presión — SOLO Validador y Developer
+        $auth->requierePermiso('presiones', 'cerrar');
         $conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $conexion->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
-
         try {
             $conexion->beginTransaction();
-
-            // 1) Prepara el UPDATE una sola vez (mejor rendimiento que prepararlo en cada iteración)
-            $sqlHoja = "
-                UPDATE hojasrequisicion
-                SET hojaRequisicion_fechaPago   = :fechaPago,
-                    hojasRequisicion_bancoPago  = :bancoPago,
-                    hojaRequisicion_estatus     = :estatus
-                WHERE hojaRequisicion_id          = :id
-            ";
+            $sqlHoja = "UPDATE hojasrequisicion SET hojaRequisicion_fechaPago = :fechaPago,
+                        hojasRequisicion_bancoPago = :bancoPago, hojaRequisicion_estatus = :estatus
+                        WHERE hojaRequisicion_id = :id";
             $stmtHoja = $conexion->prepare($sqlHoja);
-
             $autorizadas = 0;
-
             foreach ($Presiones as $presion) {
-                // Valida estructura mínima
-                if (
-                    !isset($presion['PresionEstatus'], $presion['id_hoja']) ||
-                    $presion['HojaEstatus'] !== 'AUTORIZADA'
-                ) {
-                    continue;
-                }
-
-                // Normaliza nulos / vacíos: si vienen "" o null, guarda NULL en DB
+                if (!isset($presion['PresionEstatus'], $presion['id_hoja']) || $presion['HojaEstatus'] !== 'AUTORIZADA') continue;
                 $fecha = isset($presion['Fecha']) && $presion['Fecha'] !== '' ? $presion['Fecha'] : null;
                 $banco = isset($presion['Banco']) && $presion['Banco'] !== '' ? $presion['Banco'] : null;
-                $idHoja = (int) $presion['id_hoja'];
-                
-
-                // Ejecuta con tipos adecuados; PDO maneja NULL si pasas null y tipo PARAM_NULL
-                if ($fecha === null) {
-                    $stmtHoja->bindValue(':fechaPago', null, PDO::PARAM_NULL);
-                } else {
-                    $stmtHoja->bindValue(':fechaPago', $fecha, PDO::PARAM_STR);
-                }
-
-                if ($banco === null) {
-                    $stmtHoja->bindValue(':bancoPago', null, PDO::PARAM_NULL);
-                } else {
-                    $stmtHoja->bindValue(':bancoPago', $banco, PDO::PARAM_STR);
-                }
-
+                $idH = (int) $presion['id_hoja'];
+                $stmtHoja->bindValue(':fechaPago', $fecha, $fecha === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmtHoja->bindValue(':bancoPago', $banco, $banco === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
                 $stmtHoja->bindValue(':estatus', 'PAGADA', PDO::PARAM_STR);
-                $stmtHoja->bindValue(':id', $idHoja, PDO::PARAM_INT);
-
+                $stmtHoja->bindValue(':id', $idH, PDO::PARAM_INT);
                 $stmtHoja->execute();
-                $autorizadas += $stmtHoja->rowCount(); // opcional: cuántas filas realmente cambió
+                $autorizadas += $stmtHoja->rowCount();
             }
-
-            // 2) Actualiza la tabla presiones de forma SEGURA (sin interpolar variables)
-            //    Si $idPresion no está definido, lanza excepción clara.
-            if (!isset($idPresion)) {
-                throw new RuntimeException('Falta la variable $idPresion para actualizar presiones.');
-            }
-
-            $sqlPresion = "
-                UPDATE presiones
-                SET presiones_estatus = 'AUTORIZADO'
-                WHERE presiones_id      = :idPresion
-            ";
+            $sqlPresion = "UPDATE presiones SET presiones_estatus = 'AUTORIZADO' WHERE presiones_id = :idPresion";
             $stmtPresion = $conexion->prepare($sqlPresion);
             $stmtPresion->bindValue(':idPresion', (int) $idPresion, PDO::PARAM_INT);
             $stmtPresion->execute();
-
             $conexion->commit();
-
-            // Nota: usabas $date; por consistencia lo dejo en $data
-            $data = [
-                'status' => 'success',
-                'mensaje' => 'Se actualizó y cerró la presión',
-                'detalle' => [
-                    'hojas_actualizadas' => $autorizadas,
-                    'presion_id' => (int) $idPresion
-                ]
-            ];
+            $auth->registrarBitacora('CERRAR', 'Presiones', $idPresion, ['hojas_cerradas' => $autorizadas]);
+            $data = ['status' => 'success', 'mensaje' => 'Se actualizó y cerró la presión', 'detalle' => ['hojas_actualizadas' => $autorizadas, 'presion_id' => (int)$idPresion]];
         } catch (Throwable $e) {
-            if ($conexion->inTransaction()) {
-                $conexion->rollBack();
-            }
-            $data = [
-                'status' => 'error',
-                'mensaje' => 'Error al actualizar',
-                'error' => $e->getMessage()
-            ];
+            if ($conexion->inTransaction()) $conexion->rollBack();
+            $data = ['status' => 'error', 'mensaje' => 'Error al actualizar', 'error' => $e->getMessage()];
         }
         break;
+
     case 8:
         $data = array();
-        $consulta = "SELECT * FROM `hojasrequisicion` INNER JOIN emisores ON hojasrequisicion.hojaRequisicion_empresa = emisores.emisor_id INNER JOIN provedores ON hojasrequisicion.hojaRequisicion_proveedor = provedores.proveedor_id WHERE hojaRequisicion_id ='$idHoja'";
+        $consulta = "SELECT * FROM `hojasrequisicion` INNER JOIN emisores ON hojasrequisicion.hojaRequisicion_empresa = emisores.emisor_id INNER JOIN provedores ON hojasrequisicion.hojaRequisicion_proveedor = provedores.proveedor_id WHERE hojaRequisicion_id = :idHoja";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':idHoja', $idHoja, PDO::PARAM_INT);
         $resultado->execute();
-        $dataHoja = $resultado->fetchAll(PDO::FETCH_ASSOC);
-        $consulta = "SELECT `itemRequisicion_id`, `itemRequisicion_unidad`, `itemRequisicion_producto`, `itemRequisicion_iva`, `itemRequisicion_retenciones`, `itemRequisicion_banderaFlete`, `itemRequisicion_banderaFisica`, `itemRequisicion_banderaResico`, `itemRequisicion_precio`, `itemRequisicion_cantidad`, `itemRequisicion_estatus`, `hojaRequisicion_total` FROM itemrequisicion INNER JOIN hojasrequisicion ON itemRequisicion_idHoja = hojasrequisicion.hojaRequisicion_id WHERE itemRequisicion_idHoja = '$idHoja' ORDER BY itemRequisicion_id ASC";
+        $dataHoja = $resultado->fetchAll();
+        $consulta = "SELECT `itemRequisicion_id`, `itemRequisicion_unidad`, `itemRequisicion_producto`, `itemRequisicion_iva`, `itemRequisicion_retenciones`, `itemRequisicion_banderaFlete`, `itemRequisicion_banderaFisica`, `itemRequisicion_banderaResico`, `itemRequisicion_precio`, `itemRequisicion_cantidad`, `itemRequisicion_estatus`, `hojaRequisicion_total` FROM itemrequisicion INNER JOIN hojasrequisicion ON itemRequisicion_idHoja = hojasrequisicion.hojaRequisicion_id WHERE itemRequisicion_idHoja = :idHoja ORDER BY itemRequisicion_id ASC";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':idHoja', $idHoja, PDO::PARAM_INT);
         $resultado->execute();
-        $dataItems = $resultado->fetchAll(PDO::FETCH_ASSOC);
-        array_push($data, array(
-            'infoHoja' => $dataHoja[0],
-            'items' => $dataItems
-        ));
+        $dataItems = $resultado->fetchAll();
+        array_push($data, array('infoHoja' => $dataHoja[0], 'items' => $dataItems));
         break;
+
     case 9:
-        $consulta = "SELECT `presiones_estatus` FROM `presiones` WHERE presiones_id = '$idPresion';";
+        $consulta = "SELECT `presiones_estatus` FROM `presiones` WHERE presiones_id = :idPresion";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':idPresion', $idPresion, PDO::PARAM_INT);
         $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $resultado->fetchAll();
         break;
+
     case 10:
         $data = "";
         break;
 }
 
 print json_encode($data, JSON_UNESCAPED_UNICODE);
-$conexion = NULL;
+Conexion::Desconectar();
 
-
-function convertToString($Arr)
-{
-    $result = "";
-    $indes = 0;
-    foreach ($Arr as $cadenaAux) {
-        $result = $result . $cadenaAux['itemRequisicion_producto'];
-        if ($indes < count($Arr) - 1) {
-            $result = $result . " /// ";
-        }
-        $indes++;
-    }
-    ;
-    return $result;
-}
-
-function formatearMoneda($cantidad)
-{
-    // Asegurarse de que la cantidad sea un número
-    if (!is_numeric($cantidad)) {
-        return "Entrada no válida";
-    }
-
-    // Formatear la cantidad como moneda con separadores de miles
-    return "$ " . number_format($cantidad, 2, '.', ',');
-}
-
-function putNameSection($clave)
-{
-    switch ($clave) {
-        case 'MAT':
-            return 'MATERIAL';
-        case 'EQH':
-            return 'MAQUINARIA';
-        case 'IND':
-            return 'INDIRECTOS';
-        case 'MO':
-            return 'MANO DE OBRA';
-    }
-}
-
-function obtenerAbreviatura($metodoPago)
-{
-    $mapa = [
-        "Efectivo" => "Efec",
-        "Transferencia" => "Trans"
-    ];
-
-    return $mapa[$metodoPago] ?? "";
-}
-
-function obtenerNumeracionFinal($cadena)
-{
-    // Explota la cadena por el separador "-"
-    $partes = explode('-', $cadena);
-
-    // Verifica que haya al menos una parte
-    if (count($partes) > 0) {
-        // Obtiene la última parte
-        $numero = end($partes);
-
-        // Verifica que sea un número
-        if (is_numeric($numero)) {
-            return $numero;
-        }
-    }
-
-    // Retorna null si no se encontró un número válido
-    return null;
-}
+function convertToString($Arr) { $r = ""; $i = 0; foreach ($Arr as $c) { $r .= $c['itemRequisicion_producto']; if ($i < count($Arr) - 1) $r .= " /// "; $i++; } return $r; }
+function formatearMoneda($c) { if (!is_numeric($c)) return "Entrada no válida"; return "$ " . number_format($c, 2, '.', ','); }
+function putNameSection($c) { $m = ['MAT'=>'MATERIAL','EQH'=>'MAQUINARIA','IND'=>'INDIRECTOS','MO'=>'MANO DE OBRA']; return $m[$c] ?? $c; }
+function obtenerAbreviatura($m) { $map = ["Efectivo"=>"Efec","Transferencia"=>"Trans"]; return $map[$m] ?? ""; }

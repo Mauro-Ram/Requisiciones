@@ -1,3 +1,4 @@
+# Proteger archivos de configuración
 <Files "config.php">
     Order Allow,Deny
     Deny from all
@@ -7,3 +8,12 @@
     Order Allow,Deny
     Deny from all
 </Files>
+
+# Proteger carpeta includes (no acceso directo)
+<FilesMatch "^includes/">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Proteger carpeta views (no acceso directo a vistas sueltas)
+RedirectMatch 403 ^/views/.*$
