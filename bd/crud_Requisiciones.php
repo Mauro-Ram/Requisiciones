@@ -1,29 +1,39 @@
 <?php
 include_once 'conexion.php';
-$objeto = new Conexion();
-$conexion = $objeto->Conectar();
+include_once 'auth.php';
+$conexion = Conexion::Conectar();
 
-//Conexion con axios, por parametro POST
+$auth = new Auth($conexion);
+$usuario = $auth->verificarSesion();
+
 $_POST = json_decode(file_get_contents("php://input"), true);
+if (!is_array($_POST)) $_POST = [];
 
-$accion = (isset($_POST['accion'])) ? $_POST['accion'] : '';
-$id_user = (isset($_POST['id_user'])) ? $_POST['id_user'] : '';
-$obra = (isset($_POST['obra'])) ? $_POST['obra'] : '';
-$nombreReq  = (isset($_POST['nombreReq'])) ? $_POST['nombreReq'] : '';
-$fechaReq =   (isset($_POST['fechaReq'])) ? $_POST['fechaReq'] : '';
-$clave =   (isset($_POST['clave'])) ? $_POST['clave'] : '';
-$folioReq =   (isset($_POST['folio'])) ? $_POST['folio'] : '';
-$Hoja =   (isset($_POST['hoja'])) ? $_POST['hoja'] : '';
-$idReq =   (isset($_POST['idReq'])) ? $_POST['idReq'] : '';
-$numReq =   (isset($_POST['numeroReq'])) ? $_POST['numeroReq'] : '';
+$accion    = isset($_POST['accion'])    ? $_POST['accion']    : '';
+$obra      = isset($_POST['obra'])      ? $_POST['obra']      : '';
+$nombreReq = isset($_POST['nombreReq']) ? $_POST['nombreReq'] : '';
+$fechaReq  = isset($_POST['fechaReq'])  ? $_POST['fechaReq']  : '';
+$clave     = isset($_POST['clave'])     ? $_POST['clave']     : '';
+$folioReq  = isset($_POST['folio'])     ? $_POST['folio']     : '';
+$Hoja      = isset($_POST['hoja'])      ? $_POST['hoja']      : '';
+$idReq     = isset($_POST['idReq'])     ? $_POST['idReq']     : '';
+$numReq    = isset($_POST['numeroReq']) ? $_POST['numeroReq'] : '';
+
+$data = [];
 
 switch ($accion) {
     case 1:
-        $consulta = "SELECT `requisicion_id` ,`requisicion_Numero` ,`requisicion_Clave` ,`requisicion_Nombre` ,`requisicion_estatus` FROM `requisiciones` WHERE `requisicion_Obra` = '$obra' ORDER BY `requisicion_Clave`, `requisicion_Numero` DESC";
+        // Listar requisiciones de una obra
+        $auth->requierePermiso('requisiciones', 'ver');
+        $consulta = "SELECT `requisicion_id`, `requisicion_Numero`, `requisicion_Clave`, 
+                     `requisicion_Nombre`, `requisicion_estatus` 
+                     FROM `requisiciones` 
+                     WHERE `requisicion_Obra` = :obra 
+                     ORDER BY `requisicion_Clave`, `requisicion_Numero` DESC";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
         $resultado->execute();
-        $dataArray = $resultado->fetchAll(PDO::FETCH_ASSOC);
-        $data = array();
+        $dataArray = $resultado->fetchAll();
         if (count($dataArray) > 0) {
             foreach ($dataArray as $row) {
                 array_push($data, array(
@@ -37,175 +47,195 @@ switch ($accion) {
             }
         }
         break;
+
     case 2:
-        $consulta = "SELECT * FROM `users` WHERE `user_id` = '$id_user';";
-        $resultado = $conexion->prepare($consulta);
-        $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = [$auth->getDatosParaFrontend()];
         break;
+
     case 3:
-        $consulta = "SELECT `obras_nombre`, `obra_automatico` FROM `obras` WHERE `obras_id` =" . $obra;
+        // Info de obra
+        $consulta = "SELECT `obras_nombre`, `obra_automatico` FROM `obras` WHERE `obras_id` = :obra";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
         $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $resultado->fetchAll();
         break;
+
     case 4:
-        $consulta = "SELECT SUM(`requisicion_total`) AS `totalPresion` FROM `requisiciones` WHERE `requisicion_idPresion`='$id_presion';";
+        $consulta = "SELECT SUM(`requisicion_total`) AS `totalPresion` FROM `requisiciones` WHERE `requisicion_Obra` = :obra";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
         $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $resultado->fetchAll();
         break;
+
     case 5:
-        $consulta = "SELECT * FROM `obras` WHERE `obras_estatus` = 'ACTIVO' ORDER BY `obras_nombre`";
-        $resultado = $conexion->prepare($consulta);
-        $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $auth->obtenerObrasPermitidas();
         break;
+
     case 6:
-        $consulta = "SELECT `obras_nombre`,`ciudadesObras_codigo` FROM `obras` JOIN estadosobra ON estadosobra.ciudadesObras_id = obras.obras_cuidad WHERE `obras_id` = '$obra'";
+        // Crear requisición (sin folio previo)
+        $auth->requierePermiso('requisiciones', 'crear');
+        $consulta = "SELECT `obras_nombre`,`ciudadesObras_codigo` FROM `obras` 
+                     JOIN estadosobra ON estadosobra.ciudadesObras_id = obras.obras_cuidad 
+                     WHERE `obras_id` = :obra";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
         $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $resultado->fetchAll();
         $numero_requesicion = $data[0]['ciudadesObras_codigo'] . "-" . $data[0]['obras_nombre'];
-        $consulta = "SELECT * FROM `requisiciones` WHERE `requisicion_Clave` LIKE '$clave' AND `requisicion_Obra` = '$obra'";
+
+        $consulta = "SELECT * FROM `requisiciones` WHERE `requisicion_Clave` = :clave AND `requisicion_Obra` = :obra";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':clave', $clave, PDO::PARAM_STR);
+        $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
         $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $resultado->fetchAll();
+
+        $userId = $auth->getUserId();
+
         if (count($data) == 0) {
             $numero_requesicion = $numero_requesicion . "-" . $clave . "-000";
-            // Consulta para insertar datos en la tabla requisiciones
-            $consulta = "INSERT INTO `requisiciones` (`requisicion_id`, `requisicion_Clave`, `requisicion_Numero`, `requisicion_Nombre`, `requisicion_Obra`, `requisicion_fechaSolicitud`, `requisicion_Folio`, `requisicion_Hojas`, `requisicion_total`, `requisicion_estatus`) 
-            VALUES (NULL, :requisicion_clave, :requisicion_Numero, :requisicion_nombre, :requisicion_Obra , :requisicion_fechaSolicitud, '0', '0', '0', 'ABIERTO')";
+            $consulta = "INSERT INTO `requisiciones` (`requisicion_id`, `requisicion_Clave`, `requisicion_Numero`, 
+                         `requisicion_Nombre`, `requisicion_Obra`, `requisicion_fechaSolicitud`, 
+                         `requisicion_Folio`, `requisicion_Hojas`, `requisicion_total`, `requisicion_estatus`,
+                         `requisicion_creadoPor`, `requisicion_created_at`) 
+                         VALUES (NULL, :clave, :numero, :nombre, :obra, :fecha, '0', '0', '0', 'ABIERTO', :creadoPor, NOW())";
             $resultado = $conexion->prepare($consulta);
-            // Vincular las variables a la consulta
-            $resultado->bindParam(':requisicion_clave', $clave);
-            $resultado->bindParam(':requisicion_nombre', $nombreReq);
-            $resultado->bindParam(':requisicion_fechaSolicitud', $fechaReq);
-            $resultado->bindParam(':requisicion_Obra', $obra);
-            $resultado->bindParam(':requisicion_Numero', $numero_requesicion);
-            // Ejecutar la consulta
+            $resultado->bindParam(':clave', $clave);
+            $resultado->bindParam(':nombre', $nombreReq);
+            $resultado->bindParam(':fecha', $fechaReq);
+            $resultado->bindParam(':obra', $obra);
+            $resultado->bindParam(':numero', $numero_requesicion);
+            $resultado->bindParam(':creadoPor', $userId, PDO::PARAM_INT);
             $resultado->execute();
         } else {
-            $consulta = "SELECT `requisicion_Folio` FROM `requisiciones` WHERE `requisicion_Clave` =  '$clave';";
+            $consulta = "SELECT `requisicion_Folio` FROM `requisiciones` WHERE `requisicion_Clave` = :clave AND `requisicion_Obra` = :obra";
             $resultado = $conexion->prepare($consulta);
+            $resultado->bindParam(':clave', $clave, PDO::PARAM_STR);
+            $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
             $resultado->execute();
-            $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+            $data = $resultado->fetchAll();
             $folio = $data[count($data) - 1]['requisicion_Folio'] + 1;
             $numero_requesicion = $numero_requesicion . "-" . $clave . "-" . convertFolio($folio);
 
-            // Consulta para insertar datos en la tabla requisiciones
-            $consulta = "INSERT INTO `requisiciones` (`requisicion_id`, `requisicion_Clave`, `requisicion_Numero`, `requisicion_Nombre`, `requisicion_Obra`, `requisicion_fechaSolicitud`, `requisicion_Folio`, `requisicion_Hojas`, `requisicion_total`, `requisicion_estatus`) 
-             VALUES (NULL, :requisicion_clave, :requisicion_Numero, :requisicion_nombre, :requisicion_Obra , :requisicion_fechaSolicitud, :requisicion_Folio, '0', '0', 'ABIERTO')";
+            $consulta = "INSERT INTO `requisiciones` (`requisicion_id`, `requisicion_Clave`, `requisicion_Numero`, 
+                         `requisicion_Nombre`, `requisicion_Obra`, `requisicion_fechaSolicitud`, 
+                         `requisicion_Folio`, `requisicion_Hojas`, `requisicion_total`, `requisicion_estatus`,
+                         `requisicion_creadoPor`, `requisicion_created_at`) 
+                         VALUES (NULL, :clave, :numero, :nombre, :obra, :fecha, :folio, '0', '0', 'ABIERTO', :creadoPor, NOW())";
             $resultado = $conexion->prepare($consulta);
-            // Vincular las variables a la consulta
-            $resultado->bindParam(':requisicion_clave', $clave);
-            $resultado->bindParam(':requisicion_nombre', $nombreReq);
-            $resultado->bindParam(':requisicion_fechaSolicitud', $fechaReq);
-            $resultado->bindParam(':requisicion_Obra', $obra);
-            $resultado->bindParam(':requisicion_Numero', $numero_requesicion);
-            $resultado->bindParam(':requisicion_Folio', $folio);
-            // Ejecutar la consulta
+            $resultado->bindParam(':clave', $clave);
+            $resultado->bindParam(':nombre', $nombreReq);
+            $resultado->bindParam(':fecha', $fechaReq);
+            $resultado->bindParam(':obra', $obra);
+            $resultado->bindParam(':numero', $numero_requesicion);
+            $resultado->bindParam(':folio', $folio);
+            $resultado->bindParam(':creadoPor', $userId, PDO::PARAM_INT);
             $resultado->execute();
         }
+        $nuevoId = $conexion->lastInsertId();
+        $auth->registrarBitacora('CREAR', 'Requisiciones', $nuevoId, [
+            'nombre' => $nombreReq, 'clave' => $clave, 'obra' => $obra
+        ]);
         break;
+
     case 7:
-        $consulta = "SELECT `obras_nombre`,`ciudadesObras_codigo` FROM `obras` JOIN estadosobra ON estadosobra.ciudadesObras_id = obras.obras_cuidad WHERE `obras_id` = '$obra'";
+        // Crear requisición (con folio manual)
+        $auth->requierePermiso('requisiciones', 'crear');
+        $consulta = "SELECT `obras_nombre`,`ciudadesObras_codigo` FROM `obras` 
+                     JOIN estadosobra ON estadosobra.ciudadesObras_id = obras.obras_cuidad 
+                     WHERE `obras_id` = :obra";
         $resultado = $conexion->prepare($consulta);
+        $resultado->bindParam(':obra', $obra, PDO::PARAM_INT);
         $resultado->execute();
-        $data = $resultado->fetchAll(PDO::FETCH_ASSOC);
+        $data = $resultado->fetchAll();
         $numero_requesicion = $data[0]['ciudadesObras_codigo'] . "-" . $data[0]['obras_nombre'];
         $numero_requesicion = $numero_requesicion . "-" . $clave . "-" . convertFolio($folioReq);
-        // Consulta para insertar datos en la tabla requisiciones
-        $consulta = "INSERT INTO `requisiciones` (`requisicion_id`, `requisicion_Clave`, `requisicion_Numero`, `requisicion_Nombre`, `requisicion_Obra`, `requisicion_fechaSolicitud`, `requisicion_Folio`, `requisicion_Hojas`, `requisicion_total`, `requisicion_estatus`) 
-            VALUES (NULL, :requisicion_clave, :requisicion_Numero, :requisicion_nombre, :requisicion_Obra , :requisicion_fechaSolicitud, :requisicion_Folio, :requisicion_Hojas, '0', 'ABIERTO')";
+
+        $userId = $auth->getUserId();
+        $consulta = "INSERT INTO `requisiciones` (`requisicion_id`, `requisicion_Clave`, `requisicion_Numero`, 
+                     `requisicion_Nombre`, `requisicion_Obra`, `requisicion_fechaSolicitud`, 
+                     `requisicion_Folio`, `requisicion_Hojas`, `requisicion_total`, `requisicion_estatus`,
+                     `requisicion_creadoPor`, `requisicion_created_at`) 
+                     VALUES (NULL, :clave, :numero, :nombre, :obra, :fecha, :folio, :hojas, '0', 'ABIERTO', :creadoPor, NOW())";
         $resultado = $conexion->prepare($consulta);
-        // Vincular las variables a la consulta
-        $resultado->bindParam(':requisicion_clave', $clave);
-        $resultado->bindParam(':requisicion_nombre', $nombreReq);
-        $resultado->bindParam(':requisicion_fechaSolicitud', $fechaReq);
-        $resultado->bindParam(':requisicion_Obra', $obra);
-        $resultado->bindParam(':requisicion_Numero', $numero_requesicion);
-        $resultado->bindParam(':requisicion_Folio', $folioReq);
-        $resultado->bindParam(':requisicion_Hojas', $Hoja);
-        // Ejecutar la consulta
+        $resultado->bindParam(':clave', $clave);
+        $resultado->bindParam(':nombre', $nombreReq);
+        $resultado->bindParam(':fecha', $fechaReq);
+        $resultado->bindParam(':obra', $obra);
+        $resultado->bindParam(':numero', $numero_requesicion);
+        $resultado->bindParam(':folio', $folioReq);
+        $resultado->bindParam(':hojas', $Hoja);
+        $resultado->bindParam(':creadoPor', $userId, PDO::PARAM_INT);
         $resultado->execute();
+        $nuevoId = $conexion->lastInsertId();
+        $auth->registrarBitacora('CREAR', 'Requisiciones', $nuevoId, [
+            'nombre' => $nombreReq, 'clave' => $clave, 'folio' => $folioReq
+        ]);
         break;
+
     case 8:
-       try {
-        // (Opcional pero recomendable) Modo excepción:
-        $conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-        // 1) Obtener el número actual
-        $sqlGet = "SELECT `requisicion_Numero`
-                FROM `requisiciones`
-                WHERE `requisicion_id` = :idReq";
-
-        $stmtGet = $conexion->prepare($sqlGet);
-        $stmtGet->bindValue(':idReq', (int)$idReq, PDO::PARAM_INT);
-        $stmtGet->execute();
-
-        $numeroActual = $stmtGet->fetchColumn();
+        // Editar requisición — Capturista solo las suyas
+        if (!$auth->puedeEditarRequisicion((int)$idReq)) {
+            http_response_code(403);
+            $data = ['error' => true, 'mensaje' => 'No tiene permisos para editar esta requisición.'];
+            break;
+        }
+        try {
+            $conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $sqlGet = "SELECT `requisicion_Numero` FROM `requisiciones` WHERE `requisicion_id` = :idReq";
+            $stmtGet = $conexion->prepare($sqlGet);
+            $stmtGet->bindValue(':idReq', (int)$idReq, PDO::PARAM_INT);
+            $stmtGet->execute();
+            $numeroActual = $stmtGet->fetchColumn();
 
             if ($numeroActual === false) {
-                // No existe la requisición
-                $data = [
-                    'success' => false,
-                    'message' => 'Requisición no encontrada',
-                    'idReq'   => (int)$idReq
-                ];
-                // Puedes return aquí si estás dentro de una función
+                $data = ['success' => false, 'message' => 'Requisición no encontrada', 'idReq' => (int)$idReq];
             } else {
-                // 2) Calcular el nuevo número (conservando ceros si aplica)
                 $nuevoNumero = reemplazarUltimosDigitos($numeroActual, $numReq);
-
-                // 3) Actualizar
-                $sqlUpd = "UPDATE `requisiciones`
-                        SET `requisicion_Numero` = :newNumero,
-                            `requisicion_Nombre` = :newNombre
-                        WHERE `requisicion_id` = :idReq";
-
+                $sqlUpd = "UPDATE `requisiciones` SET `requisicion_Numero` = :newNumero, `requisicion_Nombre` = :newNombre WHERE `requisicion_id` = :idReq";
                 $stmtUpd = $conexion->prepare($sqlUpd);
-                // Para valores calculados usa bindValue o variables previas
                 $stmtUpd->bindValue(':newNumero', $nuevoNumero, PDO::PARAM_STR);
                 $stmtUpd->bindValue(':newNombre', $nombreReq, PDO::PARAM_STR);
                 $stmtUpd->bindValue(':idReq', (int)$idReq, PDO::PARAM_INT);
                 $stmtUpd->execute();
 
-                // 4) (Opcional) Releer para confirmar (si tu UPDATE no cambia triggers, te puedes saltar esto)
-                $stmtGet->execute(); // Reutilizamos la consulta SELECT inicial
+                $stmtGet->execute();
                 $numeroFinal = $stmtGet->fetchColumn();
 
-                // 5) Armar $data con información útil
+                $auth->registrarBitacora('EDITAR', 'Requisiciones', $idReq, [
+                    'numero_anterior' => $numeroActual, 'numero_nuevo' => $numeroFinal
+                ]);
+
                 $data = [
-                    'success'        => true,
-                    'idReq'          => (int)$idReq,
-                    'numero_anterior'=> $numeroActual,
-                    'numero_nuevo'   => $numeroFinal,
-                    'nombre_nuevo'   => $nombreReq,
-                    'rows_affected'  => $stmtUpd->rowCount(),
+                    'success' => true, 'idReq' => (int)$idReq,
+                    'numero_anterior' => $numeroActual, 'numero_nuevo' => $numeroFinal,
+                    'nombre_nuevo' => $nombreReq, 'rows_affected' => $stmtUpd->rowCount()
                 ];
             }
         } catch (PDOException $e) {
-            $data = [
-                'success' => false,
-                'message' => 'Error de BD: ' . $e->getMessage(),
-                'idReq'   => (int)$idReq
-            ];
+            $data = ['success' => false, 'message' => 'Error de BD: ' . $e->getMessage(), 'idReq' => (int)$idReq];
         }
         break;
+
     case 9:
+        // Eliminar requisición — SOLO Validador y Developer
+        $auth->requierePermiso('requisiciones', 'eliminar');
+        $auth->registrarBitacora('ELIMINAR', 'Requisiciones', $idReq);
+
         $consulta = "SELECT `hojaRequisicion_id` FROM `hojasrequisicion` WHERE `hojaRequisicion_idReq` = :idReq";
         $resultado = $conexion->prepare($consulta);
         $resultado->bindParam(':idReq', $idReq, PDO::PARAM_INT);
         $resultado->execute();
-        $idsHojas = $resultado->fetchAll(PDO::FETCH_ASSOC);
-        foreach($idsHojas as $idHoja) {
-$consulta = "DELETE FROM `itemrequisicion` WHERE `itemrequisicion_idHoja` = :idHoja";
+        $idsHojas = $resultado->fetchAll();
+        foreach ($idsHojas as $idHoja) {
+            $consulta = "DELETE FROM `itemrequisicion` WHERE `itemrequisicion_idHoja` = :idHoja";
             $resultado = $conexion->prepare($consulta);
-            $resultado->bindParam(':idHoja', $idHoja, PDO::PARAM_INT);
+            $resultado->bindParam(':idHoja', $idHoja['hojaRequisicion_id'], PDO::PARAM_INT);
             $resultado->execute();
         }
-        $consulta = "DELETE FROM `hojasrequisicion` WHERE `hojaRequisicion_id` = :idReq";
+        $consulta = "DELETE FROM `hojasrequisicion` WHERE `hojaRequisicion_idReq` = :idReq";
         $resultado = $conexion->prepare($consulta);
         $resultado->bindParam(':idReq', $idReq, PDO::PARAM_INT);
         $resultado->execute();
@@ -218,26 +248,17 @@ $consulta = "DELETE FROM `itemrequisicion` WHERE `itemrequisicion_idHoja` = :idH
 }
 
 print json_encode($data, JSON_UNESCAPED_UNICODE);
-$conexion = NULL;
-
+Conexion::Desconectar();
 
 function convertFolio($folioInt)
 {
-    if ($folioInt < 10) {
-        return "0" . "0" . $folioInt;
-    } else if ($folioInt < 100) {
-        return "0" . $folioInt;
-    } else {
-        return $folioInt;
-    }
+    if ($folioInt < 10) return "00" . $folioInt;
+    else if ($folioInt < 100) return "0" . $folioInt;
+    else return $folioInt;
 }
 
-function reemplazarUltimosDigitos($cadenaOriginal, $nuevoNumero) {
-    // Aseguramos que el nuevo número sea string
+function reemplazarUltimosDigitos($cadenaOriginal, $nuevoNumero)
+{
     $nuevoNumero = (string)$nuevoNumero;
-
-    // Usamos una expresión regular para reemplazar solo los dígitos al final
-    $nuevaCadena = preg_replace('/\d+$/', $nuevoNumero, $cadenaOriginal);
-
-    return $nuevaCadena;
+    return preg_replace('/\d+$/', $nuevoNumero, $cadenaOriginal);
 }
